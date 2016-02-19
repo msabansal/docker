@@ -16,6 +16,9 @@ import (
 type Container struct {
 	CommonContainer
 
+	HostnamePath   string
+	HostsPath      string
+	ResolvConfPath string
 	// Fields below here are platform specific.
 }
 
@@ -67,4 +70,9 @@ func cleanResourcePath(path string) string {
 		}
 	}
 	return filepath.Join(string(os.PathSeparator), path)
+}
+
+// BuildHostnameFile writes the container's hostname file.
+func (container *Container) BuildHostnameFile() error {
+	return nil
 }
