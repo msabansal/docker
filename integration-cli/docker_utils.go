@@ -321,24 +321,7 @@ func (d *Daemon) StartWithBusybox(arg ...string) error {
 	if err := d.Start(arg...); err != nil {
 		return err
 	}
-	bb := filepath.Join(d.folder, "busybox.tar")
-	if _, err := os.Stat(bb); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("unexpected error on busybox.tar stat: %v", err)
-		}
-		// saving busybox image from main daemon
-		if err := exec.Command(dockerBinary, "save", "--output", bb, "busybox:latest").Run(); err != nil {
-			return fmt.Errorf("could not save busybox image: %v", err)
-		}
-	}
-	// loading busybox image to this daemon
-	if out, err := d.Cmd("load", "--input", bb); err != nil {
-		return fmt.Errorf("could not load busybox image: %s", out)
-	}
-	if err := os.Remove(bb); err != nil {
-		d.c.Logf("could not remove %s: %v", bb, err)
-	}
-	return nil
+	return d.LoadBusybox()
 }
 
 // Stop will send a SIGINT every second and wait for the daemon to stop.
@@ -411,6 +394,28 @@ func (d *Daemon) Restart(arg ...string) error {
 		d.root = filepath.Dir(d.root)
 	}
 	return d.Start(arg...)
+}
+
+// LoadBusybox will load the stored busybox into a newly started daemon
+func (d *Daemon) LoadBusybox() error {
+	bb := filepath.Join(d.folder, "busybox.tar")
+	if _, err := os.Stat(bb); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("unexpected error on busybox.tar stat: %v", err)
+		}
+		// saving busybox image from main daemon
+		if err := exec.Command(dockerBinary, "save", "--output", bb, "busybox:latest").Run(); err != nil {
+			return fmt.Errorf("could not save busybox image: %v", err)
+		}
+	}
+	// loading busybox image to this daemon
+	if out, err := d.Cmd("load", "--input", bb); err != nil {
+		return fmt.Errorf("could not load busybox image: %s", out)
+	}
+	if err := os.Remove(bb); err != nil {
+		d.c.Logf("could not remove %s: %v", bb, err)
+	}
+	return nil
 }
 
 func (d *Daemon) queryRootDir() (string, error) {
@@ -1779,6 +1784,23 @@ func runSleepingContainerInImage(c *check.C, image string, extraArgs ...string) 
 	args = append(args, image)
 	args = append(args, defaultSleepCommand...)
 	return dockerCmd(c, args...)
+}
+
+func getRootUIDGID() (int, int, error) {
+	uidgid := strings.Split(filepath.Base(dockerBasePath), ".")
+	if len(uidgid) == 1 {
+		//user namespace remapping is not turned on; return 0
+		return 0, 0, nil
+	}
+	uid, err := strconv.Atoi(uidgid[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	gid, err := strconv.Atoi(uidgid[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return uid, gid, nil
 }
 
 // minimalBaseImage returns the name of the minimal base image for the current

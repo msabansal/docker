@@ -894,3 +894,20 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 
 	return createOptions, nil
 }
+
+// UpdateMonitor updates monitor configure for running container
+func (container *Container) UpdateMonitor(restartPolicy containertypes.RestartPolicy) {
+	monitor := container.monitor
+	// No need to update monitor if container hasn't got one
+	// monitor will be generated correctly according to container
+	if monitor == nil {
+		return
+	}
+
+	monitor.mux.Lock()
+	// to check whether restart policy has changed.
+	if restartPolicy.Name != "" && !monitor.restartPolicy.IsSame(&restartPolicy) {
+		monitor.restartPolicy = restartPolicy
+	}
+	monitor.mux.Unlock()
+}
