@@ -24,7 +24,7 @@ func (n NetworkMode) IsContainer() bool {
 // IsBridge indicates whether container uses the bridge network stack
 // in windows it is given the name NAT
 func (n NetworkMode) IsBridge() bool {
-	return n == "NAT"
+	return n == "nat"
 }
 
 // IsHost indicates whether container uses the host network stack.
