@@ -29,6 +29,7 @@ import (
 	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/docker/docker/volume"
 	containertypes "github.com/docker/engine-api/types/container"
+	networktypes "github.com/docker/engine-api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/libnetwork"
 	"github.com/docker/libnetwork/netlabel"
@@ -38,6 +39,11 @@ import (
 )
 
 const configFileName = "config.v2.json"
+
+var (
+	errInvalidEndpoint = fmt.Errorf("invalid endpoint while building port map info")
+	errInvalidNetwork  = fmt.Errorf("invalid network settings while building port map info")
+)
 
 // CommonContainer holds the fields for a container which are
 // applicable across all platforms supported by the daemon.
@@ -697,7 +703,7 @@ func (container *Container) BuildEndpointInfo(n libnetwork.Network, ep libnetwor
 	}
 
 	if _, ok := networkSettings.Networks[n.Name()]; !ok {
-		networkSettings.Networks[n.Name()] = new(network.EndpointSettings)
+		networkSettings.Networks[n.Name()] = new(networktypes.EndpointSettings)
 	}
 	networkSettings.Networks[n.Name()].NetworkID = n.ID()
 	networkSettings.Networks[n.Name()].EndpointID = ep.ID()
@@ -770,7 +776,7 @@ func (container *Container) BuildJoinOptions(n libnetwork.Network) ([]libnetwork
 }
 
 // BuildCreateEndpointOptions builds endpoint options from a given network.
-func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epConfig *network.EndpointSettings, sb libnetwork.Sandbox) ([]libnetwork.EndpointOption, error) {
+func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epConfig *networktypes.EndpointSettings, sb libnetwork.Sandbox) ([]libnetwork.EndpointOption, error) {
 	var (
 		portSpecs     = make(nat.PortSet)
 		bindings      = make(nat.PortMap)
