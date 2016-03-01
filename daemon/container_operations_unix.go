@@ -15,12 +15,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/execdriver"
 	"github.com/docker/docker/daemon/links"
-<<<<<<< HEAD
-	derr "github.com/docker/docker/errors"
-=======
-	"github.com/docker/docker/daemon/network"
-	"github.com/docker/docker/errors"
->>>>>>> docker/master
 	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
@@ -334,7 +328,6 @@ func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName 
 	}
 	return nil
 }
-
 
 // DisconnectFromNetwork disconnects container from network n.
 func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, n libnetwork.Network, force bool) error {
