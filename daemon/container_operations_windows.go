@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/execdriver"
 	"github.com/docker/docker/daemon/execdriver/windows"
-	derr "github.com/docker/docker/errors"
 	"github.com/docker/docker/layer"
 	"github.com/docker/libnetwork"
 )
@@ -78,7 +77,7 @@ func (daemon *Daemon) populateCommand(c *container.Container, env []string) erro
 				}
 			}
 		default:
-			return derr.ErrorCodeInvalidNetworkMode.WithArgs(c.HostConfig.NetworkMode)
+			return fmt.Errorf("invalid network mode: %s", c.HostConfig.NetworkMode)
 		}
 	}
 
@@ -103,7 +102,7 @@ func (daemon *Daemon) populateCommand(c *container.Container, env []string) erro
 	var layerPaths []string
 	img, err := daemon.imageStore.Get(c.ImageID)
 	if err != nil {
-		return derr.ErrorCodeGetGraph.WithArgs(c.ImageID, err)
+		return fmt.Errorf("Failed to graph.Get on ImageID %s - %s", c.ImageID, err)
 	}
 
 	if img.RootFS != nil && img.RootFS.Type == "layers+base" {
@@ -112,7 +111,7 @@ func (daemon *Daemon) populateCommand(c *container.Container, env []string) erro
 			img.RootFS.DiffIDs = img.RootFS.DiffIDs[:i]
 			path, err := layer.GetLayerPath(daemon.layerStore, img.RootFS.ChainID())
 			if err != nil {
-				return derr.ErrorCodeGetLayer.WithArgs(err)
+				return fmt.Errorf("Failed to get layer path from graphdriver %s for ImageID %s - %s", daemon.layerStore, img.RootFS.ChainID(), err)
 			}
 			// Reverse order, expecting parent most first
 			layerPaths = append([]string{path}, layerPaths...)
@@ -121,7 +120,7 @@ func (daemon *Daemon) populateCommand(c *container.Container, env []string) erro
 
 	m, err := c.RWLayer.Metadata()
 	if err != nil {
-		return derr.ErrorCodeGetLayerMetadata.WithArgs(err)
+		return fmt.Errorf("Failed to get layer metadata - %s", err)
 	}
 	layerFolder := m["dir"]
 

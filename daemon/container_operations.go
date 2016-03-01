@@ -10,7 +10,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/network"
-	derr "github.com/docker/docker/errors"
 	"github.com/docker/docker/runconfig"
 	containertypes "github.com/docker/engine-api/types/container"
 	networktypes "github.com/docker/engine-api/types/network"
@@ -131,7 +130,7 @@ func (daemon *Daemon) buildSandboxOptions(container *container.Container, n libn
 		if alias != child.Name[1:] {
 			aliasList = aliasList + " " + child.Name[1:]
 		}
-		sboxOptions = append(sboxOptions, libnetwork.OptionExtraHost(aliasList, child.NetworkSettings.Networks["bridge"].IPAddress))
+		sboxOptions = append(sboxOptions, libnetwork.OptionExtraHost(aliasList, child.NetworkSettings.Networks[runconfig.DefaultDaemonNetworkMode().NetworkName()].IPAddress))
 		cEndpoint, _ := child.GetEndpointInNetwork(n)
 		if cEndpoint != nil && cEndpoint.ID() != "" {
 			childEndpoints = append(childEndpoints, cEndpoint.ID())
@@ -208,7 +207,7 @@ func (daemon *Daemon) updateEndpointNetworkSettings(container *container.Contain
 		return err
 	}
 
-	if container.HostConfig.NetworkMode == runconfig.DefaultDaemonNetworkMode() {
+	if container.HostConfig.NetworkMode == containertypes.NetworkMode(runconfig.DefaultDaemonNetworkMode().NetworkName()) {
 		container.NetworkSettings.Bridge = daemon.configStore.bridgeConfig.Iface
 	}
 
@@ -223,7 +222,7 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 
 	sb, err := ctrl.SandboxByID(sid)
 	if err != nil {
-		return derr.ErrorCodeNoSandbox.WithArgs(sid, err)
+		return fmt.Errorf("error locating sandbox id %s: %v", sid, err)
 	}
 
 	// Find if container is connected to the default bridge network
@@ -246,11 +245,11 @@ func (daemon *Daemon) updateNetwork(container *container.Container) error {
 
 	options, err := daemon.buildSandboxOptions(container, n)
 	if err != nil {
-		return derr.ErrorCodeNetworkUpdate.WithArgs(err)
+		return fmt.Errorf("Update network failed: %v", err)
 	}
 
 	if err := sb.Refresh(options...); err != nil {
-		return derr.ErrorCodeNetworkRefresh.WithArgs(sid, err)
+		return fmt.Errorf("Update network failed: Failure in refresh sandbox %s: %v", sid, err)
 	}
 
 	return nil
@@ -262,10 +261,6 @@ func (daemon *Daemon) updateContainerNetworkSettings(container *container.Contai
 		n   libnetwork.Network
 		err error
 	)
-
-	if daemon.netController == nil {
-		return nil
-	}
 
 	mode := container.HostConfig.NetworkMode
 	if container.Config.NetworkDisabled || mode.IsContainer() {
@@ -449,11 +444,6 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 }
 
 func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName string, endpointConfig *networktypes.EndpointSettings, updateSettings bool) (err error) {
-	controller := daemon.netController
-	if controller == nil {
-		return nil
-	}
-
 	n, err := daemon.updateNetworkConfig(container, idOrName, endpointConfig, updateSettings)
 	if err != nil {
 		return err
@@ -461,6 +451,8 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 	if n == nil {
 		return nil
 	}
+
+	controller := daemon.netController
 
 	sb := daemon.getNetworkSandbox(container)
 	createOptions, err := container.BuildCreateEndpointOptions(n, endpointConfig, sb)
@@ -512,7 +504,7 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 	}
 
 	if err := container.UpdateJoinInfo(n, ep); err != nil {
-		return derr.ErrorCodeJoinInfo.WithArgs(err)
+		return fmt.Errorf("Updating join info failed: %v", err)
 	}
 
 	daemon.LogNetworkEventWithAttributes(n, "connect", map[string]string{"container": container.ID})
@@ -619,13 +611,14 @@ func (daemon *Daemon) getNetworkedContainer(containerID, connectedContainerID st
 		return nil, err
 	}
 	if containerID == nc.ID {
-		return nil, derr.ErrorCodeJoinSelf
+		return nil, fmt.Errorf("cannot join own network")
 	}
 	if !nc.IsRunning() {
-		return nil, derr.ErrorCodeJoinRunning.WithArgs(connectedContainerID)
+		err := fmt.Errorf("cannot join network of a non running container: %s", connectedContainerID)
+		return nil, errors.NewRequestConflictError(err)
 	}
 	if nc.IsRestarting() {
-		return nil, derr.ErrorCodeContainerRestarting.WithArgs(connectedContainerID)
+		return nil, errContainerIsRestarting(connectedContainerID)
 	}
 	return nc, nil
 }

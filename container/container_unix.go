@@ -24,6 +24,11 @@ import (
 // DefaultSHMSize is the default size (64MB) of the SHM which will be mounted in the container
 const DefaultSHMSize int64 = 67108864
 
+var (
+	errInvalidEndpoint = fmt.Errorf("invalid endpoint while building port map info")
+	errInvalidNetwork  = fmt.Errorf("invalid network settings while building port map info")
+)
+
 // Container holds the fields specific to unixen implementations.
 // See CommonContainer for standard fields common to all containers.
 type Container struct {
@@ -197,11 +202,6 @@ func (container *Container) CopyImagePathContent(v volume.Volume, destination st
 // ShmResourcePath returns path to shm
 func (container *Container) ShmResourcePath() (string, error) {
 	return container.GetRootResourcePath("shm")
-}
-
-// MqueueResourcePath returns path to mqueue
-func (container *Container) MqueueResourcePath() (string, error) {
-	return container.GetRootResourcePath("mqueue")
 }
 
 // HasMountFor checks if path is a mountpoint

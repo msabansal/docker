@@ -230,7 +230,7 @@ func (s *DockerSuite) TestContainerApiStartVolumesFrom(c *check.C) {
 	volName := "voltst"
 	volPath := "/tmp"
 
-	dockerCmd(c, "run", "-d", "--name", volName, "-v", volPath, "busybox")
+	dockerCmd(c, "run", "--name", volName, "-v", volPath, "busybox")
 
 	name := "TestContainerApiStartVolumesFrom"
 	config := map[string]interface{}{
@@ -532,7 +532,7 @@ func (s *DockerSuite) TestContainerApiCommit(c *check.C) {
 	c.Assert(json.Unmarshal(b, &img), checker.IsNil)
 
 	cmd := inspectField(c, img.ID, "Config.Cmd")
-	c.Assert(cmd, checker.Equals, "{[/bin/sh -c touch /test]}", check.Commentf("got wrong Cmd from commit: %q", cmd))
+	c.Assert(cmd, checker.Equals, "[/bin/sh -c touch /test]", check.Commentf("got wrong Cmd from commit: %q", cmd))
 
 	// sanity check, make sure the image is what we think it is
 	dockerCmd(c, "run", img.ID, "ls", "/test")
@@ -564,7 +564,7 @@ func (s *DockerSuite) TestContainerApiCommitWithLabelInConfig(c *check.C) {
 	c.Assert(label2, checker.Equals, "value2")
 
 	cmd := inspectField(c, img.ID, "Config.Cmd")
-	c.Assert(cmd, checker.Equals, "{[/bin/sh -c touch /test]}", check.Commentf("got wrong Cmd from commit: %q", cmd))
+	c.Assert(cmd, checker.Equals, "[/bin/sh -c touch /test]", check.Commentf("got wrong Cmd from commit: %q", cmd))
 
 	// sanity check, make sure the image is what we think it is
 	dockerCmd(c, "run", img.ID, "ls", "/test")
@@ -643,7 +643,7 @@ func (s *DockerSuite) TestContainerApiCreateMultipleNetworksConfig(c *check.C) {
 	c.Assert(err, checker.IsNil)
 	c.Assert(status, checker.Equals, http.StatusBadRequest)
 	// network name order in error message is not deterministic
-	c.Assert(string(b), checker.Contains, "Container cannot be connected to [")
+	c.Assert(string(b), checker.Contains, "Container cannot be connected to network endpoints")
 	c.Assert(string(b), checker.Contains, "net1")
 	c.Assert(string(b), checker.Contains, "net2")
 	c.Assert(string(b), checker.Contains, "net3")

@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/daemon/logger"
 	"github.com/docker/docker/daemon/logger/jsonfilelog"
 	"github.com/docker/docker/daemon/network"
-	derr "github.com/docker/docker/errors"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/promise"
@@ -30,7 +29,6 @@ import (
 	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/docker/docker/volume"
 	containertypes "github.com/docker/engine-api/types/container"
-	networktypes "github.com/docker/engine-api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/libnetwork"
 	"github.com/docker/libnetwork/netlabel"
@@ -208,7 +206,7 @@ func (container *Container) SetupWorkingDirectory() error {
 	if err := system.MkdirAll(pth, 0755); err != nil {
 		pthInfo, err2 := os.Stat(pth)
 		if err2 == nil && pthInfo != nil && !pthInfo.IsDir() {
-			return derr.ErrorCodeNotADir.WithArgs(container.Config.WorkingDir)
+			return fmt.Errorf("Cannot mkdir: %s is not a directory", container.Config.WorkingDir)
 		}
 
 		return err
@@ -286,13 +284,6 @@ func (container *Container) ConfigPath() (string, error) {
 	return container.GetRootResourcePath(configFileName)
 }
 
-func validateID(id string) error {
-	if id == "" {
-		return derr.ErrorCodeEmptyID
-	}
-	return nil
-}
-
 // Returns true if the container exposes a certain port
 func (container *Container) exposes(p nat.Port) bool {
 	_, exists := container.Config.ExposedPorts[p]
@@ -316,7 +307,7 @@ func (container *Container) GetLogConfig(defaultConfig containertypes.LogConfig)
 func (container *Container) StartLogger(cfg containertypes.LogConfig) (logger.Logger, error) {
 	c, err := logger.GetLogDriver(cfg.Type)
 	if err != nil {
-		return nil, derr.ErrorCodeLoggingFactory.WithArgs(err)
+		return nil, fmt.Errorf("Failed to get logging factory: %v", err)
 	}
 	ctx := logger.Context{
 		Config:              cfg.Config,
@@ -612,12 +603,12 @@ func (container *Container) GetEndpointInNetwork(n libnetwork.Network) (libnetwo
 
 func (container *Container) buildPortMapInfo(ep libnetwork.Endpoint) error {
 	if ep == nil {
-		return derr.ErrorCodeEmptyEndpoint
+		return errInvalidEndpoint
 	}
 
 	networkSettings := container.NetworkSettings
 	if networkSettings == nil {
-		return derr.ErrorCodeEmptyNetwork
+		return errInvalidNetwork
 	}
 
 	if len(networkSettings.Ports) == 0 {
@@ -647,7 +638,7 @@ func getEndpointPortMapInfo(ep libnetwork.Endpoint) (nat.PortMap, error) {
 			for _, tp := range exposedPorts {
 				natPort, err := nat.NewPort(tp.Proto.String(), strconv.Itoa(int(tp.Port)))
 				if err != nil {
-					return pm, derr.ErrorCodeParsingPort.WithArgs(tp.Port, err)
+					return pm, fmt.Errorf("Error parsing Port value(%v):%v", tp.Port, err)
 				}
 				pm[natPort] = nil
 			}
@@ -691,12 +682,12 @@ func getSandboxPortMapInfo(sb libnetwork.Sandbox) nat.PortMap {
 // BuildEndpointInfo sets endpoint-related fields on container.NetworkSettings based on the provided network and endpoint.
 func (container *Container) BuildEndpointInfo(n libnetwork.Network, ep libnetwork.Endpoint) error {
 	if ep == nil {
-		return derr.ErrorCodeEmptyEndpoint
+		return errInvalidEndpoint
 	}
 
 	networkSettings := container.NetworkSettings
 	if networkSettings == nil {
-		return derr.ErrorCodeEmptyNetwork
+		return errInvalidNetwork
 	}
 
 	epInfo := ep.Info()
@@ -706,7 +697,7 @@ func (container *Container) BuildEndpointInfo(n libnetwork.Network, ep libnetwor
 	}
 
 	if _, ok := networkSettings.Networks[n.Name()]; !ok {
-		networkSettings.Networks[n.Name()] = new(networktypes.EndpointSettings)
+		networkSettings.Networks[n.Name()] = new(network.EndpointSettings)
 	}
 	networkSettings.Networks[n.Name()].NetworkID = n.ID()
 	networkSettings.Networks[n.Name()].EndpointID = ep.ID()
@@ -779,7 +770,7 @@ func (container *Container) BuildJoinOptions(n libnetwork.Network) ([]libnetwork
 }
 
 // BuildCreateEndpointOptions builds endpoint options from a given network.
-func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epConfig *networktypes.EndpointSettings, sb libnetwork.Sandbox) ([]libnetwork.EndpointOption, error) {
+func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epConfig *network.EndpointSettings, sb libnetwork.Sandbox) ([]libnetwork.EndpointOption, error) {
 	var (
 		portSpecs     = make(nat.PortSet)
 		bindings      = make(nat.PortMap)
@@ -788,8 +779,7 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 		createOptions []libnetwork.EndpointOption
 	)
 
-	if containertypes.NetworkMode(n.Name()) == runconfig.DefaultDaemonNetworkMode() ||
-		container.NetworkSettings.IsAnonymousEndpoint {
+	if n.Name() == runconfig.DefaultDaemonNetworkMode().NetworkName() || container.NetworkSettings.IsAnonymousEndpoint {
 		createOptions = append(createOptions, libnetwork.CreateOptionAnonymous())
 	}
 
@@ -814,8 +804,7 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 	// Ideally all these network-specific endpoint configurations must be moved under
 	// container.NetworkSettings.Networks[n.Name()]
 	if n.Name() == container.HostConfig.NetworkMode.NetworkName() ||
-		(containertypes.NetworkMode(n.Name()) == runconfig.DefaultDaemonNetworkMode() &&
-			container.HostConfig.NetworkMode.IsDefault()) {
+		(n.Name() == runconfig.DefaultDaemonNetworkMode().NetworkName() && container.HostConfig.NetworkMode.IsDefault()) {
 		if container.Config.MacAddress != "" {
 			mac, err := net.ParseMAC(container.Config.MacAddress)
 			if err != nil {
@@ -875,7 +864,7 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 				portStart, portEnd, err = newP.Range()
 			}
 			if err != nil {
-				return nil, derr.ErrorCodeHostPort.WithArgs(binding[i].HostPort, err)
+				return nil, fmt.Errorf("Error parsing HostPort value(%s):%v", binding[i].HostPort, err)
 			}
 			pbCopy.HostPort = uint16(portStart)
 			pbCopy.HostPortEnd = uint16(portEnd)
