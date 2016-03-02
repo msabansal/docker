@@ -824,6 +824,26 @@ RUN [ $(ls -l /exists/exists_file | awk '{print $3":"$4}') = 'dockerio:dockerio'
 	}
 }
 
+func (s *DockerSuite) TestBuildCopyToNewParentDirectory(c *check.C) {
+	testRequires(c, DaemonIsLinux) // Linux specific test
+	name := "testcopytonewdir"
+	ctx, err := fakeContext(`FROM busybox
+COPY test_dir /new_dir
+RUN [ $(ls -l / | grep new_dir | awk '{print $3":"$4}') = 'root:root' ]
+RUN ls -l /new_dir`,
+		map[string]string{
+			"test_dir/test_file": "test file",
+		})
+	if err != nil {
+		c.Fatal(err)
+	}
+	defer ctx.Close()
+
+	if _, err := buildImageFromContext(name, ctx, true); err != nil {
+		c.Fatal(err)
+	}
+}
+
 func (s *DockerSuite) TestBuildAddMultipleFilesToFile(c *check.C) {
 	name := "testaddmultiplefilestofile"
 
@@ -6548,7 +6568,7 @@ func (s *DockerSuite) TestBuildWorkdirWindowsPath(c *check.C) {
 }
 
 func (s *DockerRegistryAuthSuite) TestBuildFromAuthenticatedRegistry(c *check.C) {
-	dockerCmd(c, "login", "-u", s.reg.username, "-p", s.reg.password, "-e", s.reg.email, privateRegistryURL)
+	dockerCmd(c, "login", "-u", s.reg.username, "-p", s.reg.password, privateRegistryURL)
 
 	baseImage := privateRegistryURL + "/baseimage"
 
