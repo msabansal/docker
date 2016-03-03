@@ -248,10 +248,10 @@ func initBridgeDriver(controller libnetwork.NetworkController, config *Config) e
 	}
 
 	ipamV4Conf := libnetwork.IpamConf{}
-	if config.bridgeConfig.Subnet == "" {
+	if config.bridgeConfig.FixedCIDR == "" {
 		ipamV4Conf.PreferredPool = defaultNetworkSpace
 	} else {
-		ipamV4Conf.PreferredPool = config.bridgeConfig.Subnet
+		ipamV4Conf.PreferredPool = config.bridgeConfig.FixedCIDR
 	}
 
 	v4Conf := []*libnetwork.IpamConf{&ipamV4Conf}

@@ -15,7 +15,7 @@ var (
 // bridgeConfig stores all the bridge driver specific
 // configuration.
 type bridgeConfig struct {
-	Subnet      string
+	FixedCIDR   string
 	NetworkMode string
 	Iface       string `json:"bridge,omitempty"`
 }
@@ -39,7 +39,7 @@ func (config *Config) InstallFlags(cmd *flag.FlagSet, usageFn func(string) strin
 	config.InstallCommonFlags(cmd, usageFn)
 
 	// Then platform-specific install flags.
-	cmd.StringVar(&config.bridgeConfig.Subnet, []string{"-bridge-cidr"}, "", "IPv4 subnet for the default switch to use")
+	cmd.StringVar(&config.bridgeConfig.FixedCIDR, []string{"-fixed-cidr"}, "", usageFn("IPv4 subnet for fixed IPs"))
 	cmd.StringVar(&config.bridgeConfig.Iface, []string{"b", "-bridge"}, "", "Attach containers to a virtual switch")
 	cmd.StringVar(&config.SocketGroup, []string{"G", "-group"}, "", usageFn("Users or groups that can access the named pipe"))
 }
