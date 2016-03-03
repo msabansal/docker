@@ -50,6 +50,7 @@ func (cli *DockerCli) CmdInfo(args ...string) error {
 	}
 	ioutils.FprintfIfNotEmpty(cli.out, "Execution Driver: %s\n", info.ExecutionDriver)
 	ioutils.FprintfIfNotEmpty(cli.out, "Logging Driver: %s\n", info.LoggingDriver)
+	ioutils.FprintfIfNotEmpty(cli.out, "Cgroup Driver: %s\n", info.CgroupDriver)
 
 	fmt.Fprintf(cli.out, "Plugins: \n")
 	fmt.Fprintf(cli.out, " Volume:")
@@ -103,6 +104,9 @@ func (cli *DockerCli) CmdInfo(args ...string) error {
 		}
 		if !info.SwapLimit {
 			fmt.Fprintln(cli.err, "WARNING: No swap limit support")
+		}
+		if !info.KernelMemory {
+			fmt.Fprintln(cli.err, "WARNING: No kernel memory limit support")
 		}
 		if !info.OomKillDisable {
 			fmt.Fprintln(cli.err, "WARNING: No oom kill disable support")

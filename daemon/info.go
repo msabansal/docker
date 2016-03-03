@@ -75,14 +75,15 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		DriverStatus:       daemon.layerStore.DriverStatus(),
 		Plugins:            daemon.showPluginsInfo(),
 		IPv4Forwarding:     !sysInfo.IPv4ForwardingDisabled,
-		BridgeNfIptables:   !sysInfo.BridgeNfCallIptablesDisabled,
-		BridgeNfIP6tables:  !sysInfo.BridgeNfCallIP6tablesDisabled,
+		BridgeNfIptables:   !sysInfo.BridgeNFCallIPTablesDisabled,
+		BridgeNfIP6tables:  !sysInfo.BridgeNFCallIP6TablesDisabled,
 		Debug:              utils.IsDebugEnabled(),
 		NFd:                fileutils.GetTotalUsedFds(),
 		NGoroutines:        runtime.NumGoroutine(),
 		SystemTime:         time.Now().Format(time.RFC3339Nano),
 		ExecutionDriver:    daemon.ExecutionDriver().Name(),
 		LoggingDriver:      daemon.defaultLogConfig.Type,
+		CgroupDriver:       daemon.getCgroupDriver(),
 		NEventsListener:    daemon.EventsService.SubscribersCount(),
 		KernelVersion:      kernelVersion,
 		OperatingSystem:    operatingSystem,
@@ -110,6 +111,7 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 	if runtime.GOOS != "windows" {
 		v.MemoryLimit = sysInfo.MemoryLimit
 		v.SwapLimit = sysInfo.SwapLimit
+		v.KernelMemory = sysInfo.KernelMemory
 		v.OomKillDisable = sysInfo.OomKillDisable
 		v.CPUCfsPeriod = sysInfo.CPUCfsPeriod
 		v.CPUCfsQuota = sysInfo.CPUCfsQuota
