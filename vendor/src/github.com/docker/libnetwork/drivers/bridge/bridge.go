@@ -183,7 +183,7 @@ func (c *networkConfiguration) Conflicts(o *networkConfiguration) error {
 		return fmt.Errorf("same configuration")
 	}
 
-	// Also empty, becasue only one network with empty name is allowed
+	// Also empty, because only one network with empty name is allowed
 	if c.BridgeName == o.BridgeName {
 		return fmt.Errorf("networks have same bridge name")
 	}
@@ -450,7 +450,7 @@ func parseNetworkGenericOptions(data interface{}) (*networkConfiguration, error)
 
 func (c *networkConfiguration) processIPAM(id string, ipamV4Data, ipamV6Data []driverapi.IPAMData) error {
 	if len(ipamV4Data) > 1 || len(ipamV6Data) > 1 {
-		return types.ForbiddenErrorf("bridge driver doesnt support multiple subnets")
+		return types.ForbiddenErrorf("bridge driver doesn't support multiple subnets")
 	}
 
 	if len(ipamV4Data) == 0 {
@@ -543,6 +543,9 @@ func (d *driver) getNetworks() []*bridgeNetwork {
 
 // Create a new network using bridge plugin
 func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
+	if len(ipV4Data) == 0 || ipV4Data[0].Pool.String() == "0.0.0.0/0" {
+		return types.BadRequestErrorf("ipv4 pool is empty")
+	}
 	// Sanity checks
 	d.Lock()
 	if _, ok := d.networks[id]; ok {
@@ -581,7 +584,7 @@ func (d *driver) createNetwork(config *networkConfiguration) error {
 		nw.Unlock()
 		if err := nwConfig.Conflicts(config); err != nil {
 			return types.ForbiddenErrorf("cannot create network %s (%s): conflicts with network %s (%s): %s",
-				nwConfig.BridgeName, config.ID, nw.id, nw.config.BridgeName, err.Error())
+				config.ID, config.BridgeName, nwConfig.ID, nwConfig.BridgeName, err.Error())
 		}
 	}
 

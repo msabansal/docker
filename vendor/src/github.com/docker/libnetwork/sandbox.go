@@ -142,12 +142,15 @@ func (sb *sandbox) Labels() map[string]interface{} {
 func (sb *sandbox) Statistics() (map[string]*types.InterfaceStatistics, error) {
 	m := make(map[string]*types.InterfaceStatistics)
 
-	if sb.osSbox == nil {
+	sb.Lock()
+	osb := sb.osSbox
+	sb.Unlock()
+	if osb == nil {
 		return m, nil
 	}
 
 	var err error
-	for _, i := range sb.osSbox.Info().Interfaces() {
+	for _, i := range osb.Info().Interfaces() {
 		if m[i.DstName()], err = i.Statistics(); err != nil {
 			return m, err
 		}
@@ -463,7 +466,7 @@ func (sb *sandbox) resolveName(req string, networkName string, epList []*endpoin
 			}
 		} else {
 			// If it is a regular lookup and if the requested name is an alias
-			// dont perform a svc lookup for this endpoint.
+			// don't perform a svc lookup for this endpoint.
 			ep.Lock()
 			if _, ok := ep.aliases[req]; ok {
 				ep.Unlock()
