@@ -219,8 +219,15 @@ func (daemon *Daemon) initNetworkController(config *Config) (libnetwork.NetworkC
 			v4Conf = append(v4Conf, &ipamV4Conf)
 		}
 
+		name := v.Name
+		// There is only one nat network supported in windows.
+		// If it exists with a different name add it as the default name
+		if runconfig.DefaultDaemonNetworkMode() == containertypes.NetworkMode(strings.ToLower(v.Type)) {
+			name = runconfig.DefaultDaemonNetworkMode().NetworkName()
+		}
+
 		v6Conf := []*libnetwork.IpamConf{}
-		_, err := controller.NewNetwork(strings.ToLower(v.Type), v.Name,
+		_, err := controller.NewNetwork(strings.ToLower(v.Type), name,
 			libnetwork.NetworkOptionGeneric(options.Generic{
 				netlabel.GenericData: netOption,
 			}),
