@@ -801,8 +801,8 @@ func (s *DockerNetworkSuite) TestDockerNetworkAnonymousEndpoint(c *check.C) {
 	c.Assert(err, check.NotNil)
 }
 
-func (s *DockerNetworkSuite) TestDockerNetworkLinkOndefaultNetworkOnly(c *check.C) {
-	// Link feature must work only on default network, and not across networks
+func (s *DockerNetworkSuite) TestDockerNetworkLinkOnDefaultNetworkOnly(c *check.C) {
+	// Legacy Link feature must work only on default network, and not across networks
 	cnt1 := "container1"
 	cnt2 := "container2"
 	network := "anotherbridge"
@@ -1314,6 +1314,19 @@ func (s *DockerNetworkSuite) TestDockerNetworkDisconnectDefault(c *check.C) {
 	c.Assert(networks, checker.Not(checker.Contains), "bridge", check.Commentf("Should not contain 'bridge' network"))
 }
 
+func (s *DockerNetworkSuite) TestDockerNetworkConnectWithAliasOnDefaultNetworks(c *check.C) {
+	testRequires(c, DaemonIsLinux, NotUserNamespace, NotArm)
+
+	defaults := []string{"bridge", "host", "none"}
+	out, _ := dockerCmd(c, "run", "-d", "--net=none", "busybox", "top")
+	containerID := strings.TrimSpace(out)
+	for _, net := range defaults {
+		res, _, err := dockerCmdWithError("network", "connect", "--alias", "alias"+net, net, containerID)
+		c.Assert(err, checker.NotNil)
+		c.Assert(res, checker.Contains, runconfig.ErrUnsupportedNetworkAndAlias.Error())
+	}
+}
+
 func (s *DockerSuite) TestUserDefinedNetworkConnectDisconnectAlias(c *check.C) {
 	testRequires(c, DaemonIsLinux, NotUserNamespace, NotArm)
 	dockerCmd(c, "network", "create", "-d", "bridge", "net1")
@@ -1407,7 +1420,7 @@ func (s *DockerSuite) TestDockerNetworkConnectFailsNoInspectChange(c *check.C) {
 	c.Assert(ns1, check.Equals, ns0)
 }
 
-func (s *DockerNetworkSuite) TestDockerNetworkInternalMode(c *check.C) {
+func (s *DockerSuite) TestDockerNetworkInternalMode(c *check.C) {
 	dockerCmd(c, "network", "create", "--driver=bridge", "--internal", "internal")
 	assertNwIsAvailable(c, "internal")
 	nr := getNetworkResource(c, "internal")
@@ -1417,8 +1430,9 @@ func (s *DockerNetworkSuite) TestDockerNetworkInternalMode(c *check.C) {
 	c.Assert(waitRun("first"), check.IsNil)
 	dockerCmd(c, "run", "-d", "--net=internal", "--name=second", "busybox", "top")
 	c.Assert(waitRun("second"), check.IsNil)
-	_, _, err := dockerCmdWithError("exec", "first", "ping", "-c", "1", "www.google.com")
+	out, _, err := dockerCmdWithError("exec", "first", "ping", "-W", "4", "-c", "1", "www.google.com")
 	c.Assert(err, check.NotNil)
+	c.Assert(out, checker.Contains, "100% packet loss")
 	_, _, err = dockerCmdWithError("exec", "second", "ping", "-c", "1", "first")
 	c.Assert(err, check.IsNil)
 }

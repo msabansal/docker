@@ -85,7 +85,8 @@ packages from the new repository:
 
             deb https://apt.dockerproject.org/repo ubuntu-wily main
 
-    > **Note**: Docker does not provide packages for all architectures. To install docker on
+    > **Note**: Docker does not provide packages for all architectures. You can find
+	> nightly built binaries in https://master.dockerproject.org. To install docker on
     > a multi-architecture system, add an `[arch=...]` clause to the entry. Refer to the
     > [Debian Multiarch wiki](https://wiki.debian.org/Multiarch/HOWTO#Setting_up_apt_sources)
     > for details.
@@ -238,15 +239,19 @@ To create the `docker` group and add your user:
 
     This procedure assumes you log in as the `ubuntu` user.
 
-3. Create the `docker` group and add your user.
+2. Create the `docker` group.
+
+        $ sudo groupadd docker
+
+3. Add your user to `docker` group.
 
         $ sudo usermod -aG docker ubuntu
 
-3. Log out and log back in.
+4. Log out and log back in.
 
     This ensures your user is running with the correct permissions.
 
-4. Verify your work by running `docker` without `sudo`.
+5. Verify your work by running `docker` without `sudo`.
 
         $ docker run hello-world
 

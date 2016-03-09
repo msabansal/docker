@@ -895,6 +895,18 @@ func (s *DockerSuite) TestRunSeccompDefaultProfile(c *check.C) {
 	}
 }
 
+// TestRunNoNewPrivSetuid checks that --security-opt=no-new-privileges prevents
+// effective uid transtions on executing setuid binaries.
+func (s *DockerSuite) TestRunNoNewPrivSetuid(c *check.C) {
+	testRequires(c, DaemonIsLinux, NotUserNamespace, SameHostDaemon)
+
+	// test that running a setuid binary results in no effective uid transition
+	runCmd := exec.Command(dockerBinary, "run", "--security-opt", "no-new-privileges", "--user", "1000", "nnp-test", "/usr/bin/nnp-test")
+	if out, _, err := runCommandWithOutput(runCmd); err != nil || !strings.Contains(out, "EUID=1000") {
+		c.Fatalf("expected output to contain EUID=1000, got %s: %v", out, err)
+	}
+}
+
 func (s *DockerSuite) TestRunApparmorProcDirectory(c *check.C) {
 	testRequires(c, SameHostDaemon, Apparmor)
 
@@ -955,4 +967,16 @@ func (s *DockerSuite) TestRunDeviceSymlink(c *check.C) {
 	out, _, err = dockerCmdWithError("run", "--device", symFile+":/dev/symzero", "busybox", "sh", "-c", "dd if=/dev/symzero bs=4K count=8 | md5sum")
 	c.Assert(err, check.NotNil)
 	c.Assert(strings.Trim(out, "\r\n"), checker.Contains, "not a device node", check.Commentf("expected output 'not a device node'"))
+}
+
+// TestRunPidsLimit makes sure the pids cgroup is set with --pids-limit
+func (s *DockerSuite) TestRunPidsLimit(c *check.C) {
+	testRequires(c, pidsLimit)
+
+	file := "/sys/fs/cgroup/pids/pids.max"
+	out, _ := dockerCmd(c, "run", "--name", "skittles", "--pids-limit", "2", "busybox", "cat", file)
+	c.Assert(strings.TrimSpace(out), checker.Equals, "2")
+
+	out = inspectField(c, "skittles", "HostConfig.PidsLimit")
+	c.Assert(out, checker.Equals, "2", check.Commentf("setting the pids limit failed"))
 }

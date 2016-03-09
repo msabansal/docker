@@ -7,7 +7,7 @@ source 'hack/.vendor-helpers.sh'
 
 # the following lines are in sorted order, FYI
 clone git github.com/Azure/go-ansiterm 70b2c90b260171e829f1ebd7c17f600c11858dbe
-clone git github.com/Microsoft/hcsshim 9488dda5ab5d3c1af26e17d3d9fc2e9f29009a7b
+clone git github.com/Microsoft/hcsshim 116e0e9f5ced0cec94ae46d0aa1b3002a325f532
 clone git github.com/Microsoft/go-winio c40bf24f405ab3cc8e1383542d474e813332de6d
 clone git github.com/Sirupsen/logrus v0.9.0 # logrus is a common dependency among multiple deps
 clone git github.com/docker/libtrust 9cbd2a1374f46905c68a4eb3694a130610adc62a
@@ -24,7 +24,7 @@ clone git golang.org/x/net 47990a1ba55743e6ef1affd3a14e5bac8553615d https://gith
 clone git golang.org/x/sys eb2c74142fd19a79b3f237334c7384d5167b1b46 https://github.com/golang/sys.git
 clone git github.com/docker/go-units 651fc226e7441360384da338d0fd37f2440ffbe3
 clone git github.com/docker/go-connections v0.2.0
-clone git github.com/docker/engine-api 7f6071353fc48f69d2328c4ebe8f3bd0f7c75da4
+clone git github.com/docker/engine-api 9bab0d5b73872e53dfadfa055dcc519e57b09439
 clone git github.com/RackSec/srslog 6eb773f331e46fbba8eecb8e794e635e75fc04de
 clone git github.com/imdario/mergo 0.2.1
 

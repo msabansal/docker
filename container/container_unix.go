@@ -36,6 +36,7 @@ type Container struct {
 	ShmPath         string
 	ResolvConfPath  string
 	SeccompProfile  string
+	NoNewPrivileges bool
 }
 
 // CreateDaemonEnvironment returns the list of all environment variables given the list of

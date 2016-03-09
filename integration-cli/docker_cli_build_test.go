@@ -844,6 +844,17 @@ RUN ls -l /new_dir`,
 	}
 }
 
+func (s *DockerSuite) TestBuildWorkdirIsContainerRoot(c *check.C) {
+	testRequires(c, DaemonIsLinux) // Linux specific test
+	name := "testworkdirownership"
+	if _, err := buildImage(name, `FROM busybox
+WORKDIR /new_dir
+RUN ls -l /
+RUN [ $(ls -l / | grep new_dir | awk '{print $3":"$4}') = 'root:root' ]`, true); err != nil {
+		c.Fatal(err)
+	}
+}
+
 func (s *DockerSuite) TestBuildAddMultipleFilesToFile(c *check.C) {
 	name := "testaddmultiplefilestofile"
 
@@ -3694,30 +3705,25 @@ func (s *DockerSuite) TestBuildDockerignoringWildDirs(c *check.C) {
         FROM busybox
 		COPY . /
 		#RUN sh -c "[[ -e /.dockerignore ]]"
-		RUN sh -c "[[ -e /Dockerfile ]]"
-
-		RUN sh -c "[[ ! -e /file0 ]]"
-		RUN sh -c "[[ ! -e /dir1/file0 ]]"
-		RUN sh -c "[[ ! -e /dir2/file0 ]]"
-
-		RUN sh -c "[[ ! -e /file1 ]]"
-		RUN sh -c "[[ ! -e /dir1/file1 ]]"
-		RUN sh -c "[[ ! -e /dir1/dir2/file1 ]]"
-
-		RUN sh -c "[[ ! -e /dir1/file2 ]]"
-		RUN sh -c "[[   -e /dir1/dir2/file2 ]]"
-
-		RUN sh -c "[[ ! -e /dir1/dir2/file4 ]]"
-		RUN sh -c "[[ ! -e /dir1/dir2/file5 ]]"
-		RUN sh -c "[[ ! -e /dir1/dir2/file6 ]]"
-		RUN sh -c "[[ ! -e /dir1/dir3/file7 ]]"
-		RUN sh -c "[[ ! -e /dir1/dir3/file8 ]]"
-		RUN sh -c "[[   -e /dir1/dir3 ]]"
-		RUN sh -c "[[   -e /dir1/dir4 ]]"
-
-		RUN sh -c "[[ ! -e 'dir1/dir5/fileAA' ]]"
-		RUN sh -c "[[   -e 'dir1/dir5/fileAB' ]]"
-		RUN sh -c "[[   -e 'dir1/dir5/fileB' ]]"   # "." in pattern means nothing
+		RUN sh -c "[[ -e /Dockerfile ]]           && \
+		           [[ ! -e /file0 ]]              && \
+		           [[ ! -e /dir1/file0 ]]         && \
+		           [[ ! -e /dir2/file0 ]]         && \
+		           [[ ! -e /file1 ]]              && \
+		           [[ ! -e /dir1/file1 ]]         && \
+		           [[ ! -e /dir1/dir2/file1 ]]    && \
+		           [[ ! -e /dir1/file2 ]]         && \
+		           [[   -e /dir1/dir2/file2 ]]    && \
+		           [[ ! -e /dir1/dir2/file4 ]]    && \
+		           [[ ! -e /dir1/dir2/file5 ]]    && \
+		           [[ ! -e /dir1/dir2/file6 ]]    && \
+		           [[ ! -e /dir1/dir3/file7 ]]    && \
+		           [[ ! -e /dir1/dir3/file8 ]]    && \
+		           [[   -e /dir1/dir3 ]]          && \
+		           [[   -e /dir1/dir4 ]]          && \
+		           [[ ! -e 'dir1/dir5/fileAA' ]]  && \
+		           [[   -e 'dir1/dir5/fileAB' ]]  && \
+		           [[   -e 'dir1/dir5/fileB' ]]"   # "." in pattern means nothing
 
 		RUN echo all done!`
 
@@ -3831,21 +3837,18 @@ USER root
 RUN [ "$(id -G):$(id -Gn)" = '0 10:root wheel' ]
 
 # Setup dockerio user and group
-RUN echo 'dockerio:x:1001:1001::/bin:/bin/false' >> /etc/passwd
-RUN echo 'dockerio:x:1001:' >> /etc/group
+RUN echo 'dockerio:x:1001:1001::/bin:/bin/false' >> /etc/passwd && \
+	echo 'dockerio:x:1001:' >> /etc/group
 
 # Make sure we can switch to our user and all the information is exactly as we expect it to be
 USER dockerio
-RUN id -G
-RUN id -Gn
 RUN [ "$(id -u):$(id -g)/$(id -un):$(id -gn)/$(id -G):$(id -Gn)" = '1001:1001/dockerio:dockerio/1001:dockerio' ]
 
 # Switch back to root and double check that worked exactly as we might expect it to
 USER root
-RUN [ "$(id -u):$(id -g)/$(id -un):$(id -gn)/$(id -G):$(id -Gn)" = '0:0/root:root/0 10:root wheel' ]
-
-# Add a "supplementary" group for our dockerio user
-RUN echo 'supplementary:x:1002:dockerio' >> /etc/group
+RUN [ "$(id -u):$(id -g)/$(id -un):$(id -gn)/$(id -G):$(id -Gn)" = '0:0/root:root/0 10:root wheel' ] && \
+	# Add a "supplementary" group for our dockerio user \
+	echo 'supplementary:x:1002:dockerio' >> /etc/group
 
 # ... and then go verify that we get it like we expect
 USER dockerio
