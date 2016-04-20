@@ -99,61 +99,6 @@ func (daemon *Daemon) getSize(container *container.Container) (int64, int64) {
 	return sizeRw, sizeRootfs
 }
 
-// ConnectToNetwork connects a container to a network
-func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName string, endpointConfig *networktypes.EndpointSettings) error {
-	if endpointConfig == nil {
-		endpointConfig = &networktypes.EndpointSettings{}
-	}
-	if !container.Running {
-		if container.RemovalInProgress || container.Dead {
-			return errRemovalContainer(container.ID)
-		}
-		if _, err := daemon.updateNetworkConfig(container, idOrName, endpointConfig, true); err != nil {
-			return err
-		}
-		container.NetworkSettings.Networks[idOrName] = endpointConfig
-	} else {
-		if err := daemon.connectToNetwork(container, idOrName, endpointConfig, true); err != nil {
-			return err
-		}
-	}
-	if err := container.ToDiskLocking(); err != nil {
-		return fmt.Errorf("Error saving container to disk: %v", err)
-	}
-	return nil
-}
-
-// DisconnectFromNetwork disconnects container from network n.
-func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, n libnetwork.Network, force bool) error {
-	if container.HostConfig.NetworkMode.IsHost() && containertypes.NetworkMode(n.Type()).IsHost() {
-		return runconfig.ErrConflictHostNetwork
-	}
-	if !container.Running {
-		if container.RemovalInProgress || container.Dead {
-			return errRemovalContainer(container.ID)
-		}
-		if _, ok := container.NetworkSettings.Networks[n.Name()]; ok {
-			delete(container.NetworkSettings.Networks, n.Name())
-		} else {
-			return fmt.Errorf("container %s is not connected to the network %s", container.ID, n.Name())
-		}
-	} else {
-		if err := disconnectFromNetwork(container, n, false); err != nil {
-			return err
-		}
-	}
-
-	if err := container.ToDiskLocking(); err != nil {
-		return fmt.Errorf("Error saving container to disk: %v", err)
-	}
-
-	attributes := map[string]string{
-		"container": container.ID,
-	}
-	daemon.LogNetworkEventWithAttributes(n, "disconnect", attributes)
-	return nil
-}
-
 func (daemon *Daemon) getIpcContainer(container *container.Container) (*container.Container, error) {
 	containerID := container.HostConfig.IpcMode.Container()
 	c, err := daemon.GetContainer(containerID)
