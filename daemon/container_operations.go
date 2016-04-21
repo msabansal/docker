@@ -783,3 +783,7 @@ func (daemon *Daemon) releaseNetwork(container *container.Container) {
 		daemon.LogNetworkEventWithAttributes(nw, "disconnect", attributes)
 	}
 }
+
+func errRemovalContainer(containerID string) error {
+	return fmt.Errorf("Container %s is marked for removal and cannot be connected or disconnected to the network", containerID)
+}

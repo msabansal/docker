@@ -309,7 +309,3 @@ func isLinkable(child *container.Container) bool {
 	_, ok := child.NetworkSettings.Networks[runconfig.DefaultDaemonNetworkMode().NetworkName()]
 	return ok
 }
-
-func errRemovalContainer(containerID string) error {
-	return fmt.Errorf("Container %s is marked for removal and cannot be connected or disconnected to the network", containerID)
-}
