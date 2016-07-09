@@ -25,8 +25,6 @@ import (
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/reference"
-	"github.com/docker/docker/runconfig"
-	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/blkiodev"
 	pblkiodev "github.com/docker/engine-api/types/blkiodev"
@@ -1023,37 +1021,7 @@ func setupDaemonRoot(config *Config, rootDir string, rootUID, rootGID int) error
 
 // registerLinks writes the links to a file.
 func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *containertypes.HostConfig) error {
-	if hostConfig == nil || hostConfig.NetworkMode.IsUserDefined() {
-		return nil
-	}
-
-	for _, l := range hostConfig.Links {
-		name, alias, err := runconfigopts.ParseLink(l)
-		if err != nil {
-			return err
-		}
-		child, err := daemon.GetContainer(name)
-		if err != nil {
-			return fmt.Errorf("Could not get container for %s", name)
-		}
-		for child.HostConfig.NetworkMode.IsContainer() {
-			parts := strings.SplitN(string(child.HostConfig.NetworkMode), ":", 2)
-			child, err = daemon.GetContainer(parts[1])
-			if err != nil {
-				return fmt.Errorf("Could not get container for %s", parts[1])
-			}
-		}
-		if child.HostConfig.NetworkMode.IsHost() {
-			return runconfig.ErrConflictHostNetworkAndLinks
-		}
-		if err := daemon.registerLink(container, child, alias); err != nil {
-			return err
-		}
-	}
-
-	// After we load all the links into the daemon
-	// set them to nil on the hostconfig
-	return container.WriteHostConfig()
+	return daemon.registerLinksInternal(container, hostConfig)
 }
 
 // conditionalMountOnStart is a platform specific helper function during the

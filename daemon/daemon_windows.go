@@ -326,8 +326,9 @@ func initBridgeDriver(controller libnetwork.NetworkController, config *Config) e
 
 // registerLinks sets up links between containers and writes the
 // configuration out for persistence. As of Windows TP4, links are not supported.
+// registerLinks writes the links to a file.
 func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *containertypes.HostConfig) error {
-	return nil
+	return daemon.registerLinksInternal(container, hostConfig)
 }
 
 func (daemon *Daemon) cleanupMountsByID(in string) error {

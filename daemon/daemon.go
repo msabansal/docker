@@ -26,6 +26,7 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/events"
 	"github.com/docker/docker/daemon/exec"
+	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/docker/engine-api/types"
 	containertypes "github.com/docker/engine-api/types/container"
 	"github.com/docker/libnetwork/cluster"
@@ -352,6 +353,41 @@ func (daemon *Daemon) children(c *container.Container) map[string]*container.Con
 // with the given name.
 func (daemon *Daemon) parents(c *container.Container) map[string]*container.Container {
 	return daemon.linkIndex.parents(c)
+}
+
+// registerLinks writes the links to a file.
+func (daemon *Daemon) registerLinksInternal(container *container.Container, hostConfig *containertypes.HostConfig) error {
+	if hostConfig == nil || hostConfig.NetworkMode.IsUserDefined() {
+		return nil
+	}
+
+	for _, l := range hostConfig.Links {
+		name, alias, err := runconfigopts.ParseLink(l)
+		if err != nil {
+			return err
+		}
+		child, err := daemon.GetContainer(name)
+		if err != nil {
+			return fmt.Errorf("Could not get container for %s", name)
+		}
+		for child.HostConfig.NetworkMode.IsContainer() {
+			parts := strings.SplitN(string(child.HostConfig.NetworkMode), ":", 2)
+			child, err = daemon.GetContainer(parts[1])
+			if err != nil {
+				return fmt.Errorf("Could not get container for %s", parts[1])
+			}
+		}
+		if child.HostConfig.NetworkMode.IsHost() {
+			return runconfig.ErrConflictHostNetworkAndLinks
+		}
+		if err := daemon.registerLink(container, child, alias); err != nil {
+			return err
+		}
+	}
+
+	// After we load all the links into the daemon
+	// set them to nil on the hostconfig
+	return container.WriteHostConfig()
 }
 
 func (daemon *Daemon) registerLink(parent, child *container.Container, alias string) error {
