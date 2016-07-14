@@ -13,8 +13,6 @@ import (
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/libcontainerd/windowsoci"
 	"github.com/docker/docker/oci"
-
-	"github.com/Sirupsen/logrus"
 )
 
 func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, error) {
@@ -54,15 +52,15 @@ func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, e
 		})
 	}
 
-	s.Mounts = append(s.Mounts, windowsoci.Mount{
-		Source:      os.Getenv("programdata") + string(os.PathSeparator) + "docker" + string(os.PathSeparator) + "windowsfilter" + string(os.PathSeparator) + c.ID + string(os.PathSeparator) + "etc",
-		Destination: "C:\\windows\\system32\\drivers\\etc",
-		Readonly:    false,
-	})
+	// s.Mounts = append(s.Mounts, windowsoci.Mount{
+	// 	Source:      os.Getenv("programdata") + string(os.PathSeparator) + "docker" + string(os.PathSeparator) + "windowsfilter" + string(os.PathSeparator) + c.ID + string(os.PathSeparator) + "etc",
+	// 	Destination: "C:\\windows\\system32\\drivers\\etc",
+	// 	Readonly:    false,
+	// })
 
-	for _, mount := range s.Mounts {
-		logrus.Debugf("Mount %s => %s", mount.Source, mount.Destination)
-	}
+	// for _, mount := range s.Mounts {
+	// 	logrus.Debugf("Mount %s => %s", mount.Source, mount.Destination)
+	// }
 
 	// In s.Process
 	s.Process.Args = append([]string{c.Path}, c.Args...)

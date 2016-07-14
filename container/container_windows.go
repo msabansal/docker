@@ -107,3 +107,7 @@ func (container *Container) BuildHostnameFile() error {
 func (container *Container) canMountFS() bool {
 	return !containertypes.Isolation.IsHyperV(container.HostConfig.Isolation)
 }
+
+func (container *Container) enableServiceDiscoveryOnDefaultNetwork() bool {
+	return true
+}
