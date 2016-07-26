@@ -181,7 +181,7 @@ func (daemon *Daemon) buildSandboxOptions(container *container.Container) ([]lib
 		return sboxOptions, nil
 	}
 
-	if container.NetworkSettings.Networks[defaultNetName].EndpointID == "" {
+	if container.NetworkSettings.Networks[defaultNetName] == nil || container.NetworkSettings.Networks[defaultNetName].EndpointID == "" {
 		return sboxOptions, nil
 	}
 
