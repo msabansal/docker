@@ -94,6 +94,7 @@ func (container *Container) canMountFS() bool {
 	return true
 }
 
-func (container *Container) enableServiceDiscoveryOnDefaultNetwork() bool {
+// Enable servcie discovery on default network
+func (container *Container) EnableServiceDiscoveryOnDefaultNetwork() bool {
 	return false
 }

@@ -510,7 +510,8 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 		return nil, nil
 	}
 
-	if !containertypes.NetworkMode(idOrName).IsUserDefined() {
+	if !container.EnableServiceDiscoveryOnDefaultNetwork() &&
+		!containertypes.NetworkMode(idOrName).IsUserDefined() {
 		if hasUserDefinedIPAddress(endpointConfig) {
 			return nil, runconfig.ErrUnsupportedNetworkAndIP
 		}
@@ -518,6 +519,7 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 			return nil, runconfig.ErrUnsupportedNetworkAndAlias
 		}
 	} else {
+		logrus.Warnf("Adding shortid")
 		addShortID := true
 		shortID := stringid.TruncateID(container.ID)
 		for _, alias := range endpointConfig.Aliases {
@@ -529,6 +531,8 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 		if addShortID {
 			endpointConfig.Aliases = append(endpointConfig.Aliases, shortID)
 		}
+
+		logrus.Warnf("Shortid aliases %v", endpointConfig.Aliases)
 	}
 
 	n, err := daemon.FindNetwork(idOrName)

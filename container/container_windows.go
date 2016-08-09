@@ -108,6 +108,7 @@ func (container *Container) canMountFS() bool {
 	return !containertypes.Isolation.IsHyperV(container.HostConfig.Isolation)
 }
 
-func (container *Container) enableServiceDiscoveryOnDefaultNetwork() bool {
+// Enable servcie discovery on default network
+func (container *Container) EnableServiceDiscoveryOnDefaultNetwork() bool {
 	return true
 }
