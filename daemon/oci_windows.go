@@ -137,6 +137,7 @@ func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, e
 	// In s.Windows.Networking
 	// Connect all the libnetwork allocated networks to the container
 	var epList []string
+	AllowUnqualifiedDNSQuery := false
 	if c.NetworkSettings != nil {
 		for n := range c.NetworkSettings.Networks {
 			sn, err := daemon.FindNetwork(n)
@@ -156,10 +157,15 @@ func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, e
 			if data["hnsid"] != nil {
 				epList = append(epList, data["hnsid"].(string))
 			}
+
+			if data["AllowUnqualifiedDNSQuery"] != nil {
+				AllowUnqualifiedDNSQuery = true
+			}
 		}
 	}
 	s.Windows.Networking = &windowsoci.Networking{
-		EndpointList: epList,
+		EndpointList:             epList,
+		AllowUnqualifiedDNSQuery: AllowUnqualifiedDNSQuery,
 	}
 
 	// In s.Windows.Resources

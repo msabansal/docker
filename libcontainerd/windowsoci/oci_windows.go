@@ -113,6 +113,8 @@ type HvRuntime struct {
 type Networking struct {
 	// List of endpoints to be attached to the container
 	EndpointList []string `json:"endpoints,omitempty"`
+	// AllowUnqualifiedDNSQuery allows unqualified name resolution for containers
+	AllowUnqualifiedDNSQuery bool
 }
 
 // Storage contains storage resource management settings

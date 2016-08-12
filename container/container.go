@@ -783,7 +783,9 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 
 	defaultNetName := runconfig.DefaultDaemonNetworkMode().NetworkName()
 
-	if n.Name() == defaultNetName || container.NetworkSettings.IsAnonymousEndpoint {
+	if !container.EnableServiceDiscoveryOnDefaultNetwork() &&
+		(n.Name() == defaultNetName ||
+			container.NetworkSettings.IsAnonymousEndpoint) {
 		createOptions = append(createOptions, libnetwork.CreateOptionAnonymous())
 	}
 

@@ -53,7 +53,7 @@ func killProcessDirectly(container *container.Container) error {
 }
 
 func isLinkable(child *container.Container) bool {
-	return false
+	return true
 }
 
 func enableIPOnPredefinedNetwork() bool {

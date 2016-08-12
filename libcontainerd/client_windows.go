@@ -53,6 +53,7 @@ func (clnt *client) Create(containerID string, spec Spec, options ...CreateOptio
 
 	if spec.Windows.Networking != nil {
 		configuration.EndpointList = spec.Windows.Networking.EndpointList
+		configuration.AllowUnqualifiedDNSQuery = spec.Windows.Networking.AllowUnqualifiedDNSQuery
 	}
 
 	if spec.Windows.Resources != nil {
