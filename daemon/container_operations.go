@@ -63,16 +63,14 @@ func (daemon *Daemon) buildSandboxOptions(container *container.Container) ([]lib
 	}
 
 	container.HostsPath, err = container.GetRootResourcePath("hosts")
-	if err != nil {
-		return nil, err
+	if err == nil {
+		sboxOptions = append(sboxOptions, libnetwork.OptionHostsPath(container.HostsPath))
 	}
-	sboxOptions = append(sboxOptions, libnetwork.OptionHostsPath(container.HostsPath))
 
 	container.ResolvConfPath, err = container.GetRootResourcePath("resolv.conf")
-	if err != nil {
-		return nil, err
+	if err == nil {
+		sboxOptions = append(sboxOptions, libnetwork.OptionResolvConfPath(container.ResolvConfPath))
 	}
-	sboxOptions = append(sboxOptions, libnetwork.OptionResolvConfPath(container.ResolvConfPath))
 
 	if len(container.HostConfig.DNS) > 0 {
 		dns = container.HostConfig.DNS
@@ -81,6 +79,7 @@ func (daemon *Daemon) buildSandboxOptions(container *container.Container) ([]lib
 	}
 
 	for _, d := range dns {
+		logrus.Debugf("Appending sandbox dns %s", dns)
 		sboxOptions = append(sboxOptions, libnetwork.OptionDNS(d))
 	}
 
@@ -510,6 +509,9 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 		return nil, nil
 	}
 
+	endpointConfig.DNS = daemon.configStore.DNS
+	endpointConfig.DNSSearch = daemon.configStore.DNSSearch
+
 	if !container.EnableServiceDiscoveryOnDefaultNetwork() &&
 		!containertypes.NetworkMode(idOrName).IsUserDefined() {
 		if hasUserDefinedIPAddress(endpointConfig) {
@@ -519,7 +521,6 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 			return nil, runconfig.ErrUnsupportedNetworkAndAlias
 		}
 	} else {
-		logrus.Warnf("Adding shortid")
 		addShortID := true
 		shortID := stringid.TruncateID(container.ID)
 		for _, alias := range endpointConfig.Aliases {
@@ -531,8 +532,6 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 		if addShortID {
 			endpointConfig.Aliases = append(endpointConfig.Aliases, shortID)
 		}
-
-		logrus.Warnf("Shortid aliases %v", endpointConfig.Aliases)
 	}
 
 	n, err := daemon.FindNetwork(idOrName)
@@ -565,7 +564,6 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 	}
 
 	controller := daemon.netController
-
 	sb := daemon.getNetworkSandbox(container)
 	createOptions, err := container.BuildCreateEndpointOptions(n, endpointConfig, sb)
 	if err != nil {

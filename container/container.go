@@ -907,6 +907,34 @@ func (container *Container) BuildCreateEndpointOptions(n libnetwork.Network, epC
 		}
 	}
 
+	var dns []string
+	var dnsSearch []string
+	logrus.Debugf("Creating options ")
+
+	if len(container.HostConfig.DNS) > 0 {
+		dns = container.HostConfig.DNS
+	} else if len(epConfig.DNS) > 0 {
+		dns = epConfig.DNS
+	}
+
+	logrus.Debugf("DNS %v", dns)
+	if dns != nil {
+		createOptions = append(createOptions,
+			libnetwork.CreateOptionDNS(dns))
+	}
+
+	if len(container.HostConfig.DNSSearch) > 0 {
+		dnsSearch = container.HostConfig.DNSSearch
+	} else if len(epConfig.DNSSearch) > 0 {
+		dnsSearch = epConfig.DNSSearch
+	}
+
+	logrus.Debugf("DNS search %v", dnsSearch)
+	if dnsSearch != nil {
+		createOptions = append(createOptions,
+			libnetwork.CreateOptionDNSSearch(dnsSearch))
+	}
+
 	createOptions = append(createOptions,
 		libnetwork.CreateOptionPortMapping(pbList),
 		libnetwork.CreateOptionExposedPorts(exposeList))
