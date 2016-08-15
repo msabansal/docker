@@ -510,7 +510,6 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, idOrNa
 	}
 
 	endpointConfig.DNS = daemon.configStore.DNS
-	endpointConfig.DNSSearch = daemon.configStore.DNSSearch
 
 	if !container.EnableServiceDiscoveryOnDefaultNetwork() &&
 		!containertypes.NetworkMode(idOrName).IsUserDefined() {
