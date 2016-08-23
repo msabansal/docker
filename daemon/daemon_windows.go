@@ -226,7 +226,7 @@ func (daemon *Daemon) initNetworkController(config *Config, activeSandboxes map[
 	if network, err := controller.NetworkByName(runconfig.DefaultDaemonNetworkMode().NetworkName()); err == nil {
 		options := network.Info().DriverOptions()
 		for _, v := range hnsresponse {
-			if options[winlibnetwork.HNSID] == v.Id {
+			if options[winlibnetwork.HNSID] == v.Id || runconfig.DefaultDaemonNetworkMode().NetworkName() == v.Name {
 				defaultNetworkExists = true
 				break
 			}
