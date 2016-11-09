@@ -293,11 +293,28 @@ type endpointOptions struct {
 
 func (e *endpointOptions) ToEndpointSpec() *swarm.EndpointSpec {
 	portConfigs := []swarm.PortConfig{}
-	// We can ignore errors because the format was already validated by ValidatePort
-	ports, portBindings, _ := nat.ParsePortSpecs(e.ports.GetAll())
+	for _, value := range e.ports.GetAll() {
+		if strings.Index(value, "=") != -1 {
+			// We can ignore errors because the format was already validated by ValidatePort
+			portKVPairs, _ := parsePortCSV(value)
+			tPort, _ := strconv.ParseUint(portKVPairs[portOptTargetPort], 10, 16)
+			pPort, _ := strconv.ParseUint(portKVPairs[portOptPublishedPort], 10, 16)
+			portConfigs = append(portConfigs, swarm.PortConfig{
+				Protocol:      swarm.PortConfigProtocol(portKVPairs[portOptProtocol]),
+				TargetPort:    uint32(tPort),
+				PublishedPort: uint32(pPort),
+				PublishMode:   swarm.PortConfigPublishMode(portKVPairs[portOptMode]),
+			})
 
-	for port := range ports {
-		portConfigs = append(portConfigs, convertPortToPortConfig(port, portBindings)...)
+			continue
+		}
+
+		// We can ignore errors because the format was already validated by ValidatePort
+		ports, portBindings, _ := nat.ParsePortSpecs([]string{value})
+
+		for port := range ports {
+			portConfigs = append(portConfigs, convertPortToPortConfig(port, portBindings)...)
+		}
 	}
 
 	return &swarm.EndpointSpec{
@@ -386,8 +403,55 @@ func (opts *healthCheckOptions) toHealthConfig() (*container.HealthConfig, error
 	return healthConfig, nil
 }
 
+func parsePortCSV(value string) (map[string]string, error) {
+	kvPair := make(map[string]string)
+	for _, key := range []string{portOptTargetPort, portOptPublishedPort, portOptProtocol, portOptMode} {
+		kvPair[key] = ""
+	}
+
+	for _, kv := range strings.Split(value, ",") {
+		parts := strings.Split(kv, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid key/value %s provided as port option", kv)
+		}
+
+		k := parts[0]
+		v := parts[1]
+
+		if _, ok := kvPair[k]; !ok {
+			return nil, fmt.Errorf("unrecognized port option %s", k)
+		}
+
+		if k == portOptTargetPort || k == portOptPublishedPort {
+			if _, err := strconv.ParseUint(v, 10, 16); err != nil {
+				return nil, err
+			}
+		}
+
+		kvPair[k] = v
+	}
+
+	if tPort := kvPair[portOptTargetPort]; tPort == "" {
+		return nil, fmt.Errorf("target-port option mandatory")
+	}
+
+	return kvPair, nil
+}
+
+func validatePortCSV(value string) (string, error) {
+	if _, err := parsePortCSV(value); err != nil {
+		return "", err
+	}
+
+	return value, nil
+}
+
 // ValidatePort validates a string is in the expected format for a port definition
 func ValidatePort(value string) (string, error) {
+	if strings.Index(value, "=") != -1 {
+		return validatePortCSV(value)
+	}
+
 	portMappings, err := nat.ParsePortSpec(value)
 	for _, portMapping := range portMappings {
 		if portMapping.Binding.HostIP != "" {
@@ -626,6 +690,9 @@ const (
 	flagPublish               = "publish"
 	flagPublishRemove         = "publish-rm"
 	flagPublishAdd            = "publish-add"
+	flagPort                  = "port"
+	flagPortAdd               = "port-add"
+	flagPortRemove            = "port-rm"
 	flagReplicas              = "replicas"
 	flagReserveCPU            = "reserve-cpu"
 	flagReserveMemory         = "reserve-memory"
@@ -653,4 +720,9 @@ const (
 	flagSecret                = "secret"
 	flagSecretAdd             = "secret-add"
 	flagSecretRemove          = "secret-rm"
+
+	portOptTargetPort    = "target"
+	portOptPublishedPort = "published"
+	portOptProtocol      = "protocol"
+	portOptMode          = "mode"
 )

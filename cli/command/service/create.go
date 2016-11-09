@@ -41,10 +41,12 @@ func newCreateCommand(dockerCli *command.DockerCli) *cobra.Command {
 	flags.Var(&opts.networks, flagNetwork, "Network attachments")
 	flags.Var(&opts.secrets, flagSecret, "Specify secrets to expose to the service")
 	flags.VarP(&opts.endpoint.ports, flagPublish, "p", "Publish a port as a node port")
+	flags.MarkHidden(flagPublish)
 	flags.Var(&opts.groups, flagGroup, "Set one or more supplementary user groups for the container")
 	flags.Var(&opts.dns, flagDNS, "Set custom DNS servers")
 	flags.Var(&opts.dnsOptions, flagDNSOptions, "Set DNS options")
 	flags.Var(&opts.dnsSearch, flagDNSSearch, "Set custom DNS search domains")
+	flags.Var(&opts.endpoint.ports, flagPort, "Publish a port")
 
 	flags.SetInterspersed(false)
 	return cmd
