@@ -168,6 +168,7 @@ func AddFlags(flags *pflag.FlagSet) *ContainerOptions {
 	flags.StringVar(&copts.restartPolicy, "restart", "no", "Restart policy to apply when a container exits")
 	flags.StringVar(&copts.stopSignal, "stop-signal", signal.DefaultStopSignal, fmt.Sprintf("Signal to stop a container, %v by default", signal.DefaultStopSignal))
 	flags.IntVar(&copts.stopTimeout, "stop-timeout", 0, "Timeout (in seconds) to stop a container")
+	flags.SetAnnotation("stop-timeout", "version", []string{"1.25"})
 	flags.Var(copts.sysctls, "sysctl", "Sysctl options")
 	flags.BoolVarP(&copts.tty, "tty", "t", false, "Allocate a pseudo-TTY")
 	flags.Var(copts.ulimits, "ulimit", "Ulimit options")
@@ -217,13 +218,13 @@ func AddFlags(flags *pflag.FlagSet) *ContainerOptions {
 
 	// Health-checking
 	flags.StringVar(&copts.healthCmd, "health-cmd", "", "Command to run to check health")
-	flags.DurationVar(&copts.healthInterval, "health-interval", 0, "Time between running the check")
+	flags.DurationVar(&copts.healthInterval, "health-interval", 0, "Time between running the check (ns|us|ms|s|m|h) (default 0s)")
 	flags.IntVar(&copts.healthRetries, "health-retries", 0, "Consecutive failures needed to report unhealthy")
-	flags.DurationVar(&copts.healthTimeout, "health-timeout", 0, "Maximum time to allow one check to run")
+	flags.DurationVar(&copts.healthTimeout, "health-timeout", 0, "Maximum time to allow one check to run (ns|us|ms|s|m|h) (default 0s)")
 	flags.BoolVar(&copts.noHealthcheck, "no-healthcheck", false, "Disable any container-specified HEALTHCHECK")
 
 	// Resource management
-	flags.Uint16Var(&copts.blkioWeight, "blkio-weight", 0, "Block IO (relative weight), between 10 and 1000")
+	flags.Uint16Var(&copts.blkioWeight, "blkio-weight", 0, "Block IO (relative weight), between 10 and 1000, or 0 to disable (default 0)")
 	flags.Var(&copts.blkioWeightDevice, "blkio-weight-device", "Block IO weight (relative device weight)")
 	flags.StringVar(&copts.containerIDFile, "cidfile", "", "Write the container ID to the file")
 	flags.StringVar(&copts.cpusetCpus, "cpuset-cpus", "", "CPUs in which to allow execution (0-3, 0,1)")

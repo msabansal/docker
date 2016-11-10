@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
@@ -128,11 +129,19 @@ type ContainerProcessList struct {
 	Titles    []string
 }
 
+// Ping contains response of Remote API:
+// GET "/_ping"
+type Ping struct {
+	APIVersion   string
+	Experimental bool
+}
+
 // Version contains response of Remote API:
 // GET "/version"
 type Version struct {
 	Version       string
 	APIVersion    string `json:"ApiVersion"`
+	MinAPIVersion string `json:"MinAPIVersion,omitempty"`
 	GitCommit     string
 	GoVersion     string
 	Os            string
@@ -387,6 +396,7 @@ type NetworkResource struct {
 	Containers map[string]EndpointResource // Containers contains endpoints belonging to the network
 	Options    map[string]string           // Options holds the network specific options to use for when creating the network
 	Labels     map[string]string           // Labels holds metadata specific to the network being created
+	Peers      []network.PeerInfo          `json:",omitempty"` // List of peer nodes for an overlay network
 }
 
 // EndpointResource contains network resources allocated and used for a container in a network
@@ -500,4 +510,16 @@ type ImagesPruneReport struct {
 // POST "/networks/prune"
 type NetworksPruneReport struct {
 	NetworksDeleted []string
+}
+
+// SecretCreateResponse contains the information returned to a client
+// on the creation of a new secret.
+type SecretCreateResponse struct {
+	// ID is the id of the created secret.
+	ID string
+}
+
+// SecretListOptions holds parameters to list secrets
+type SecretListOptions struct {
+	Filters filters.Args
 }

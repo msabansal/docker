@@ -23,6 +23,7 @@ type CommonAPIClient interface {
 	NetworkAPIClient
 	ServiceAPIClient
 	SwarmAPIClient
+	SecretAPIClient
 	SystemAPIClient
 	VolumeAPIClient
 	ClientVersion() string
@@ -129,7 +130,7 @@ type SystemAPIClient interface {
 	Info(ctx context.Context) (types.Info, error)
 	RegistryLogin(ctx context.Context, auth types.AuthConfig) (registry.AuthenticateOKBody, error)
 	DiskUsage(ctx context.Context) (types.DiskUsage, error)
-	Ping(ctx context.Context) (bool, error)
+	Ping(ctx context.Context) (types.Ping, error)
 }
 
 // VolumeAPIClient defines API client methods for the volumes
@@ -140,4 +141,12 @@ type VolumeAPIClient interface {
 	VolumeList(ctx context.Context, filter filters.Args) (volumetypes.VolumesListOKBody, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	VolumesPrune(ctx context.Context, cfg types.VolumesPruneConfig) (types.VolumesPruneReport, error)
+}
+
+// SecretAPIClient defines API client methods for secrets
+type SecretAPIClient interface {
+	SecretList(ctx context.Context, options types.SecretListOptions) ([]swarm.Secret, error)
+	SecretCreate(ctx context.Context, secret swarm.SecretSpec) (types.SecretCreateResponse, error)
+	SecretRemove(ctx context.Context, id string) error
+	SecretInspectWithRaw(ctx context.Context, name string) (swarm.Secret, []byte, error)
 }

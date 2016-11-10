@@ -2834,21 +2834,21 @@ _docker_swarm_join-token() {
 _docker_swarm_leave() {
 	case "$cur" in
 		-*)
-			COMPREPLY=( $( compgen -W "--force --help" -- "$cur" ) )
+			COMPREPLY=( $( compgen -W "--force -f --help" -- "$cur" ) )
 			;;
 	esac
 }
 
 _docker_swarm_update() {
 	case "$prev" in
-		--cert-expiry|--dispatcher-heartbeat|--task-history-limit)
+		--cert-expiry|--dispatcher-heartbeat|--max-snapshots|--snapshot-interval|--task-history-limit)
 			return
 			;;
 	esac
 
 	case "$cur" in
 		-*)
-			COMPREPLY=( $( compgen -W "--cert-expiry --dispatcher-heartbeat --help --task-history-limit" -- "$cur" ) )
+			COMPREPLY=( $( compgen -W "--cert-expiry --dispatcher-heartbeat --help --max-snapshots --snapshot-interval --task-history-limit" -- "$cur" ) )
 			;;
 	esac
 }
@@ -2950,7 +2950,7 @@ _docker_node_remove() {
 _docker_node_rm() {
 	case "$cur" in
 		-*)
-			COMPREPLY=( $( compgen -W "--force --help" -- "$cur" ) )
+			COMPREPLY=( $( compgen -W "--force -f --help" -- "$cur" ) )
 			;;
 		*)
 			__docker_complete_nodes
