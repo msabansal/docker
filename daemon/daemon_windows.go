@@ -288,7 +288,6 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		if !found {
 			// global networks should not be deleted by local HNS
 			if v.Info().Scope() != datastore.GlobalScope {
-				logrus.Errorf("Removing network %s", v.ID)
 				err = v.Delete()
 				if err != nil {
 					logrus.Errorf("Error occurred when removing network %v", err)
