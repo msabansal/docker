@@ -130,6 +130,12 @@ func (e *executor) Configure(ctx context.Context, node *api.Node) error {
 		return nil
 	}
 
+	logrus.Debugf("====Printing node attachemnts====")
+
+	for nid, aa := range node.LbAttachments {
+		logrus.Debugf("Node attachemnt %s %v", nid, aa.Addresses[0])
+	}
+
 	options := types.NetworkCreate{
 		Driver: na.Network.DriverState.Name,
 		IPAM: &network.IPAM{
