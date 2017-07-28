@@ -439,6 +439,7 @@ type NetworkCreate struct {
 	Internal       bool
 	Attachable     bool
 	Ingress        bool
+	LB             bool
 	ConfigOnly     bool
 	ConfigFrom     *network.ConfigReference
 	Options        map[string]string

@@ -15,12 +15,14 @@ type endpointTable map[string]*endpoint
 const overlayEndpointPrefix = "overlay/endpoint"
 
 type endpoint struct {
-	id        string
-	nid       string
-	profileId string
-	remote    bool
-	mac       net.HardwareAddr
-	addr      *net.IPNet
+	id             string
+	nid            string
+	profileId      string
+	remote         bool
+	mac            net.HardwareAddr
+	addr           *net.IPNet
+	gateway        *net.IP
+	disablegateway bool
 }
 
 func validateID(nid, eid string) error {
@@ -113,9 +115,12 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 		return fmt.Errorf("create endpoint was not passed interface IP address")
 	}
 
-	if s := n.getSubnetforIP(ep.addr); s == nil {
+	var s *subnet
+	if s = n.getSubnetforIP(ep.addr); s == nil {
 		return fmt.Errorf("no matching subnet for IP %q in network %q\n", ep.addr, nid)
 	}
+
+	ep.gateway = s.gwIP
 
 	// Todo: Add port bindings and qos policies here
 
@@ -123,6 +128,7 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 		Name:              eid,
 		VirtualNetwork:    n.hnsId,
 		IPAddress:         ep.addr.IP,
+		GatewayAddress:    ep.gateway.String(),
 		EnableInternalDNS: true,
 	}
 
@@ -140,6 +146,18 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 	}
 
 	hnsEndpoint.Policies = append(hnsEndpoint.Policies, paPolicy)
+
+	natPolicy, err := json.Marshal(hcsshim.PaPolicy{
+		Type: "OutBoundNAT",
+		PA:   n.providerAddress,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	hnsEndpoint.Policies = append(hnsEndpoint.Policies, natPolicy)
+	ep.disablegateway = true
 
 	configurationb, err := json.Marshal(hnsEndpoint)
 	if err != nil {

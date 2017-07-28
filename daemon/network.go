@@ -102,29 +102,47 @@ func (daemon *Daemon) getAllNetworks() []libnetwork.Network {
 }
 
 type ingressJob struct {
-	create  *clustertypes.NetworkCreateRequest
-	ip      net.IP
-	jobDone chan struct{}
+	create    *clustertypes.NetworkCreateRequest
+	ip        net.IP
+	jobDone   chan struct{}
+	ingressID string
 }
 
 var (
-	ingressWorkerOnce  sync.Once
-	ingressJobsChannel chan *ingressJob
-	ingressID          string
+	lbWorkerOnce  sync.Once
+	lbJobsChannel chan *ingressJob
+	ingressID     string
+	lbList        []string
 )
 
 func (daemon *Daemon) startIngressWorker() {
-	ingressJobsChannel = make(chan *ingressJob, 100)
+	lbJobsChannel = make(chan *ingressJob, 100)
 	go func() {
 		for {
 			select {
-			case r := <-ingressJobsChannel:
+			case r := <-lbJobsChannel:
 				if r.create != nil {
-					daemon.setupIngress(r.create, r.ip, ingressID)
-					ingressID = r.create.ID
+					if r.create.LB {
+						daemon.setupLB(r.create, r.ip)
+						lbList = append(lbList, r.create.ID)
+					} else {
+						daemon.setupIngress(r.create, r.ip, ingressID)
+						ingressID = r.create.ID
+					}
 				} else {
-					daemon.releaseIngress(ingressID)
-					ingressID = ""
+					if r.ingressID != "" {
+						daemon.releaseLB(r.ingressID)
+
+						for i, lb := range lbList {
+							if lb == r.ingressID {
+								lbList = append(lbList[:i], lbList[i+1:]...)
+								break
+							}
+						}
+					} else {
+						daemon.releaseIngress(ingressID)
+						ingressID = ""
+					}
 				}
 				close(r.jobDone)
 			}
@@ -135,19 +153,19 @@ func (daemon *Daemon) startIngressWorker() {
 // enqueueIngressJob adds a ingress add/rm request to the worker queue.
 // It guarantees the worker is started.
 func (daemon *Daemon) enqueueIngressJob(job *ingressJob) {
-	ingressWorkerOnce.Do(daemon.startIngressWorker)
-	ingressJobsChannel <- job
+	lbWorkerOnce.Do(daemon.startIngressWorker)
+	lbJobsChannel <- job
 }
 
 // SetupIngress setups ingress networking.
 // The function returns a channel which will signal the caller when the programming is completed.
-func (daemon *Daemon) SetupIngress(create clustertypes.NetworkCreateRequest, nodeIP string) (<-chan struct{}, error) {
+func (daemon *Daemon) SetupLB(create clustertypes.NetworkCreateRequest, nodeIP string) (<-chan struct{}, error) {
 	ip, _, err := net.ParseCIDR(nodeIP)
 	if err != nil {
 		return nil, err
 	}
 	done := make(chan struct{})
-	daemon.enqueueIngressJob(&ingressJob{&create, ip, done})
+	daemon.enqueueIngressJob(&ingressJob{&create, ip, done, ""})
 	return done, nil
 }
 
@@ -155,7 +173,28 @@ func (daemon *Daemon) SetupIngress(create clustertypes.NetworkCreateRequest, nod
 // The function returns a channel which will signal the caller when the programming is completed.
 func (daemon *Daemon) ReleaseIngress() (<-chan struct{}, error) {
 	done := make(chan struct{})
-	daemon.enqueueIngressJob(&ingressJob{nil, nil, done})
+	daemon.enqueueIngressJob(&ingressJob{nil, nil, done, ""})
+	return done, nil
+}
+
+// ReleaseFirstLB releases the ingress networking.
+// The function returns a channel which will signal the caller when the programming is completed.
+func (daemon *Daemon) ReleaseFirstLB() <-chan struct{} {
+
+	if len(lbList) != 0 {
+		done := make(chan struct{})
+		daemon.enqueueIngressJob(&ingressJob{nil, nil, done, lbList[0]})
+		return done
+	} else {
+		return nil
+	}
+
+}
+
+// ReleaseLB releases the lb sandbox.
+func (daemon *Daemon) ReleaseLB(nid string) (<-chan struct{}, error) {
+	done := make(chan struct{})
+	daemon.enqueueIngressJob(&ingressJob{nil, nil, done, nid})
 	return done, nil
 }
 
@@ -180,9 +219,10 @@ func (daemon *Daemon) setupIngress(create *clustertypes.NetworkCreateRequest, ip
 	n, err := daemon.GetNetworkByID(create.ID)
 	if err != nil {
 		logrus.Errorf("Failed getting ingress network by id after creating: %v", err)
+		return
 	}
 
-	sb, err := controller.NewSandbox("ingress-sbox", libnetwork.OptionIngress())
+	sb, err := controller.NewSandbox(create.ID, libnetwork.OptionIngress(), libnetwork.OptionLB())
 	if err != nil {
 		if _, ok := err.(networktypes.ForbiddenError); !ok {
 			logrus.Errorf("Failed creating ingress sandbox: %v", err)
@@ -208,7 +248,7 @@ func (daemon *Daemon) setupIngress(create *clustertypes.NetworkCreateRequest, ip
 
 func (daemon *Daemon) releaseIngress(id string) {
 	controller := daemon.netController
-	if err := controller.SandboxDestroy("ingress-sbox"); err != nil {
+	if err := controller.SandboxDestroy(id); err != nil {
 		logrus.Errorf("Failed to delete ingress sandbox: %v", err)
 	}
 
@@ -231,6 +271,80 @@ func (daemon *Daemon) releaseIngress(id string) {
 
 	if err := n.Delete(); err != nil {
 		logrus.Errorf("Failed to delete ingress network %s: %v", n.ID(), err)
+		return
+	}
+	return
+}
+
+func (daemon *Daemon) setupLB(create *clustertypes.NetworkCreateRequest, ip net.IP) {
+	controller := daemon.netController
+	controller.AgentInitWait()
+
+	if _, err := daemon.createNetwork(create.NetworkCreateRequest, create.ID, true); err != nil {
+		// If it is any other error other than already
+		// exists error log error and return.
+		if _, ok := err.(libnetwork.NetworkNameError); !ok {
+			logrus.Errorf("Failed creating lb network: %v", err)
+			return
+		}
+		// Otherwise continue down the call to create or recreate sandbox.
+	}
+
+	n, err := daemon.GetNetworkByID(create.ID)
+	if err != nil {
+		logrus.Errorf("Failed getting lb network by id after creating: %v", err)
+		return
+	}
+
+	sb, err := controller.NewSandbox(create.ID, libnetwork.OptionLB())
+	if err != nil {
+		if _, ok := err.(networktypes.ForbiddenError); !ok {
+			logrus.Errorf("Failed creating lb sandbox: %v", err)
+		}
+		return
+	}
+
+	ep, err := n.CreateEndpoint("lb-endpoint", libnetwork.CreateOptionIpam(ip, nil, nil, nil))
+	if err != nil {
+		logrus.Errorf("Failed creating ingress endpoint: %v", err)
+		return
+	}
+
+	if err := ep.Join(sb, nil); err != nil {
+		logrus.Errorf("Failed joining lb sandbox to lb endpoint: %v", err)
+		return
+	}
+
+	if err := sb.EnableService(); err != nil {
+		logrus.Errorf("Failed enabling service for lb sandbox")
+	}
+}
+
+func (daemon *Daemon) releaseLB(id string) {
+	controller := daemon.netController
+	if err := controller.SandboxDestroy(id); err != nil {
+		logrus.Errorf("Failed to delete ingress sandbox: %v", err)
+	}
+
+	if id == "" {
+		return
+	}
+
+	n, err := controller.NetworkByID(id)
+	if err != nil {
+		logrus.Errorf("failed to retrieve lb network %s: %v", id, err)
+		return
+	}
+
+	for _, ep := range n.Endpoints() {
+		if err := ep.Delete(true); err != nil {
+			logrus.Errorf("Failed to delete endpoint %s (%s): %v", ep.Name(), ep.ID(), err)
+			return
+		}
+	}
+
+	if err := n.Delete(); err != nil {
+		logrus.Errorf("Failed to delete lb network %s: %v", n.ID(), err)
 		return
 	}
 	return

@@ -24,6 +24,8 @@ import (
 type executor struct {
 	backend      executorpkg.Backend
 	dependencies exec.DependencyManager
+
+	lbList []string
 }
 
 // NewExecutor returns an executor from the docker client.
@@ -124,46 +126,78 @@ func (e *executor) Describe(ctx context.Context) (*api.NodeDescription, error) {
 }
 
 func (e *executor) Configure(ctx context.Context, node *api.Node) error {
-	na := node.Attachment
-	if na == nil {
+	ingress := node.Attachment
+	if ingress == nil {
 		e.backend.ReleaseIngress()
-		return nil
 	}
 
-	logrus.Debugf("====Printing node attachemnts====")
+	var lbNetworks []string
 
-	for nid, aa := range node.LbAttachments {
-		logrus.Debugf("Node attachemnt %s %v", nid, aa.Addresses[0])
-	}
-
-	options := types.NetworkCreate{
-		Driver: na.Network.DriverState.Name,
-		IPAM: &network.IPAM{
-			Driver: na.Network.IPAM.Driver.Name,
-		},
-		Options:        na.Network.DriverState.Options,
-		Ingress:        true,
-		CheckDuplicate: true,
-	}
-
-	for _, ic := range na.Network.IPAM.Configs {
-		c := network.IPAMConfig{
-			Subnet:  ic.Subnet,
-			IPRange: ic.Range,
-			Gateway: ic.Gateway,
+	for _, na := range node.LbAttachments {
+		options := types.NetworkCreate{
+			Driver: na.Network.DriverState.Name,
+			IPAM: &network.IPAM{
+				Driver: na.Network.IPAM.Driver.Name,
+			},
+			Options:        na.Network.DriverState.Options,
+			LB:             true,
+			CheckDuplicate: true,
 		}
-		options.IPAM.Config = append(options.IPAM.Config, c)
+
+		if ingress != nil && ingress.Network.ID == na.Network.ID {
+			options.Ingress = true
+		}
+
+		for _, ic := range na.Network.IPAM.Configs {
+			c := network.IPAMConfig{
+				Subnet:  ic.Subnet,
+				IPRange: ic.Range,
+				Gateway: ic.Gateway,
+			}
+			options.IPAM.Config = append(options.IPAM.Config, c)
+		}
+
+		_, err := e.backend.SetupLB(clustertypes.NetworkCreateRequest{
+			ID: na.Network.ID,
+			NetworkCreateRequest: types.NetworkCreateRequest{
+				Name:          na.Network.Spec.Annotations.Name,
+				NetworkCreate: options,
+			},
+		}, na.Addresses[0])
+
+		if err != nil {
+
+			for _, lbNetwork := range lbNetworks {
+				e.backend.ReleaseLB(lbNetwork)
+			}
+
+			if ingress != nil {
+				e.backend.ReleaseIngress()
+			}
+
+			return err
+		} else {
+			if options.LB {
+				lbNetworks = append(lbNetworks, na.Network.ID)
+			}
+		}
 	}
 
-	_, err := e.backend.SetupIngress(clustertypes.NetworkCreateRequest{
-		ID: na.Network.ID,
-		NetworkCreateRequest: types.NetworkCreateRequest{
-			Name:          na.Network.Spec.Annotations.Name,
-			NetworkCreate: options,
-		},
-	}, na.Addresses[0])
+	for _, existingNetwork := range e.lbList {
+		found := false
+		for _, lbnetwork := range lbNetworks {
+			if lbnetwork == existingNetwork {
+				found = true
+			}
+		}
 
-	return err
+		if !found {
+			e.backend.ReleaseLB(existingNetwork)
+		}
+	}
+
+	e.lbList = lbNetworks
+	return nil
 }
 
 // Controller returns a docker container runner.

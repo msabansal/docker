@@ -490,6 +490,20 @@ func (daemon *Daemon) DaemonLeavesCluster() {
 	} else {
 		logrus.Warnf("failed to initiate ingress network removal: %v", err)
 	}
+
+	for {
+
+		done := daemon.ReleaseFirstLB()
+		if done == nil {
+			break
+		}
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			logrus.Warnf("timeout while waiting for ingress network removal")
+		}
+	}
 }
 
 // setClusterProvider sets a component for querying the current cluster state.
