@@ -22,6 +22,8 @@ func init() {
 func (n *network) addLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []*PortConfig) {
 
 	if system.GetOSVersion().Build > 16236 {
+		lb.Lock()
+		defer lb.Unlock()
 		//find the load balancer IP for the network.
 		var sourceVIP string
 		for _, e := range n.Endpoints() {
@@ -77,9 +79,31 @@ func (n *network) addLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []
 			ilb: ilbPolicy,
 		}
 
-		for _, port := range ingressPorts {
+		publishedPorts := make(map[uint32]uint32)
 
-			lbPolicylistMap[lb].elb, err = hcsshim.AddLoadBalancer(endpoints, false, sourceVIP, "", 0, uint16(port.TargetPort), uint16(port.PublishedPort))
+		for i, port := range ingressPorts {
+			protocol := uint16(6)
+
+			// Skip already published port
+			if publishedPorts[port.PublishedPort] == port.TargetPort {
+				continue
+			}
+
+			if port.Protocol == ProtocolUDP {
+				protocol = 17
+			}
+
+			// check if already has udp matching to add wild card publishing
+			for j := i + 1; j < len(ingressPorts); j++ {
+				if ingressPorts[j].TargetPort == port.TargetPort &&
+					ingressPorts[j].PublishedPort == port.PublishedPort {
+					protocol = 0
+				}
+			}
+
+			publishedPorts[port.PublishedPort] = port.TargetPort
+
+			lbPolicylistMap[lb].elb, err = hcsshim.AddLoadBalancer(endpoints, false, sourceVIP, "", protocol, uint16(port.TargetPort), uint16(port.PublishedPort))
 			if err != nil {
 				logrus.Errorf("Failed to add ELB policy for service %s (ip:%s target port:%v published port:%v) with endpoints %v using load balancer IP %s on network %s: %v",
 					lb.service.name, vip.String(), uint16(port.TargetPort), uint16(port.PublishedPort), endpoints, sourceVIP, n.Name(), err)
@@ -95,6 +119,8 @@ func (n *network) rmLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []*
 			//Reprogram HNS (actually VFP) with the existing backends.
 			n.addLBBackend(ip, vip, lb, ingressPorts)
 		} else {
+			lb.Lock()
+			defer lb.Unlock()
 			logrus.Debugf("No more backends for service %s (ip:%s).  Removing all policies", lb.service.name, lb.vip.String())
 
 			if policyLists, ok := lbPolicylistMap[lb]; ok {
