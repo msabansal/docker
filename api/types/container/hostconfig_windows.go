@@ -13,7 +13,7 @@ func (n NetworkMode) IsBridge() bool {
 // IsHost indicates whether container uses the host network stack.
 // returns false as this is not supported by windows
 func (n NetworkMode) IsHost() bool {
-	return false
+	return n == "host"
 }
 
 // IsUserDefined indicates user-created network

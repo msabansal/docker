@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/pkg/sysinfo"
 	"github.com/docker/docker/pkg/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -191,23 +192,35 @@ func (daemon *Daemon) createSpec(c *container.Container) (*specs.Spec, error) {
 		}
 	}
 
+	if gwHNSID != "" {
+		epList = append(epList, gwHNSID)
+	}
+
 	var networkSharedContainerID string
+	var sboxKey string
 	if c.HostConfig.NetworkMode.IsContainer() {
 		networkSharedContainerID = c.NetworkSharedContainerID
 		for _, ep := range c.SharedEndpointList {
 			epList = append(epList, ep)
 		}
+		nc, err := daemon.getNetworkedContainer(c.ID, c.HostConfig.NetworkMode.ConnectedContainer())
+		if err != nil {
+			return nil, err
+		}
+		sboxKey = nc.NetworkSettings.SandboxKey
+	} else {
+		sboxKey = c.NetworkSettings.SandboxKey
+		epList = nil
 	}
 
-	if gwHNSID != "" {
-		epList = append(epList, gwHNSID)
-	}
+	logrus.Errorf("Container Start ")
 
 	s.Windows.Network = &specs.WindowsNetwork{
 		AllowUnqualifiedDNSQuery:   AllowUnqualifiedDNSQuery,
 		DNSSearchList:              dnsSearch,
 		EndpointList:               epList,
 		NetworkSharedContainerName: networkSharedContainerID,
+		SandboxKey:                 sboxKey,
 	}
 
 	if img.OS == "windows" {

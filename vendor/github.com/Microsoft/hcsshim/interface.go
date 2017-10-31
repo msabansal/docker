@@ -93,6 +93,7 @@ type ContainerConfig struct {
 	ContainerType               string              `json:",omitempty"` // "Linux" for Linux containers on Windows. Omitted otherwise.
 	TerminateOnLastHandleClosed bool                `json:",omitempty"` // Should HCS terminate the container once all handles have been closed
 	MappedVirtualDisks          []MappedVirtualDisk `json:",omitempty"` // Array of virtual disks to mount at start
+	CompartmentID               string              `json:",omitempty"` // Compartment ID for the container
 }
 
 type ComputeSystemQuery struct {

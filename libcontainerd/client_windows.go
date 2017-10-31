@@ -172,6 +172,7 @@ func (clnt *client) createWindows(containerID string, checkpoint string, checkpo
 			configuration.DNSSearchList = strings.Join(spec.Windows.Network.DNSSearchList, ",")
 		}
 		configuration.NetworkSharedContainerName = spec.Windows.Network.NetworkSharedContainerName
+		configuration.CompartmentID = spec.Windows.Network.SandboxKey
 	}
 
 	if cs, ok := spec.Windows.CredentialSpec.(string); ok {
@@ -387,6 +388,7 @@ func (clnt *client) createLinux(containerID string, checkpoint string, checkpoin
 			configuration.DNSSearchList = strings.Join(spec.Windows.Network.DNSSearchList, ",")
 		}
 		configuration.NetworkSharedContainerName = spec.Windows.Network.NetworkSharedContainerName
+		configuration.CompartmentID = spec.Windows.Network.SandboxKey
 	}
 
 	// Add the mounts (volumes, bind mounts etc) to the structure. We have to do
